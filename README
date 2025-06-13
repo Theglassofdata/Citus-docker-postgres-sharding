@@ -78,7 +78,7 @@ This repository sets up a **production-grade, multi-node PostgreSQL cluster** po
 
 ```bash
 # Step 1: Clone the repository
-git clone https://github.com/yourusername/citus-cluster-docker.git
+git clone https://github.com/theglassofdata/Citus-docker-postgres-sharding.git
 cd citus-cluster-docker
 
 # Step 2: Start all services
