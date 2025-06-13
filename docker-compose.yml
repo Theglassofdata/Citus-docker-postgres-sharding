@@ -1,0 +1,180 @@
+version: '3.8'
+
+services:
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.9
+    container_name: etcd
+    # REMOVED: External port exposure - only internal access needed
+    environment:
+      ETCD_NAME: etcd
+      ETCD_DATA_DIR: /etcd-data
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd:2380
+      ETCD_INITIAL_CLUSTER: etcd=http://etcd:2380
+      ETCD_INITIAL_CLUSTER_TOKEN: citus-cluster
+      ETCD_INITIAL_CLUSTER_STATE: new
+    volumes:
+      - etcd-data:/etcd-data
+    networks:
+      - project_notion
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+
+  postgres:
+    image: postgres:16.1
+    container_name: postgres
+    # REMOVED: External port exposure - only internal access needed
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_DB: postgres
+    secrets:
+      - db_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - project_notion
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 1G
+
+  coordinator_citus:
+    image: citusdata/citus:12.1
+    container_name: coordinator_citus
+    # REMOVED: External port exposure - access through pgbouncer only
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_DB: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    secrets:
+      - db_password
+    volumes:
+      - coordinator_data:/var/lib/postgresql/data
+      - ./setup-citus-cluster.sh:/scripts/setup-citus-cluster.sh
+
+    networks:
+      - project_notion
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 1G
+
+  worker_citus1:
+    image: citusdata/citus:12.1
+    container_name: worker_citus1
+    # REMOVED: External port exposure - only internal cluster communication
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_DB: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    secrets:
+      - db_password
+    volumes:
+      - worker_data1:/var/lib/postgresql/data
+    networks:
+      - project_notion
+    depends_on:
+      - coordinator_citus
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 1G
+
+  worker_citus2:
+    image: citusdata/citus:12.1
+    container_name: worker_citus2
+    # REMOVED: External port exposure - only internal cluster communication
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_DB: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    secrets:
+      - db_password
+    volumes:
+      - worker_data2:/var/lib/postgresql/data
+    networks:
+      - project_notion
+    depends_on:
+      - coordinator_citus
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 1G
+
+  pgbouncer:
+    image: edoburu/pgbouncer
+    container_name: pgbouncer
+    ports:
+      - "6432:6432"  # ONLY external port - single point of access
+    environment:
+      DB_USER: postgres
+      DB_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini
+      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt
+    networks:
+      - project_notion
+    depends_on:
+      - coordinator_citus
+    restart: unless-stopped
+
+networks:
+  project_notion:
+    driver: bridge
+
+volumes:
+  etcd-data:
+  postgres_data:
+  coordinator_data:
+  worker_data1:
+  worker_data2:
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
