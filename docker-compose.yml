@@ -1,11 +1,9 @@
 version: '3.8'
 
 services:
-
   etcd:
     image: quay.io/coreos/etcd:v3.5.9
     container_name: etcd
-    # REMOVED: External port exposure - only internal access needed
     environment:
       ETCD_NAME: etcd
       ETCD_DATA_DIR: /etcd-data
@@ -26,16 +24,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 512M
 
   postgres:
     image: postgres:16.1
     container_name: postgres
-    # REMOVED: External port exposure - only internal access needed
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
@@ -44,6 +36,8 @@ services:
       - db_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
     networks:
       - project_notion
     restart: unless-stopped
@@ -52,16 +46,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: '1.00'
-          memory: 1G
 
   coordinator_citus:
     image: citusdata/citus:12.1
     container_name: coordinator_citus
-    # REMOVED: External port exposure - access through pgbouncer only
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
@@ -71,8 +59,11 @@ services:
       - db_password
     volumes:
       - coordinator_data:/var/lib/postgresql/data
-      - ./setup-citus-cluster.sh:/scripts/setup-citus-cluster.sh
-
+      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./init-scripts/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./init-scripts/init-citus-cluster.sql:/docker-entrypoint-initdb.d/02-init-citus-cluster.sql:ro
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf
     networks:
       - project_notion
     restart: unless-stopped
@@ -81,16 +72,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: '1.00'
-          memory: 1G
 
   worker_citus1:
     image: citusdata/citus:12.1
     container_name: worker_citus1
-    # REMOVED: External port exposure - only internal cluster communication
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
@@ -100,26 +85,73 @@ services:
       - db_password
     volumes:
       - worker_data1:/var/lib/postgresql/data
+      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./init-scripts/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf
     networks:
       - project_notion
     depends_on:
-      - coordinator_citus
+      coordinator_citus:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: '1.00'
-          memory: 1G
+
+  worker_citus1_standby:
+    image: citusdata/citus:12.1
+    container_name: worker_citus1_standby
+    user: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_DB: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+      PGUSER: postgres
+      PGPASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - worker_citus1_standby_data:/var/lib/postgresql/data
+      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    command: >
+      bash -c "
+        echo 'Waiting for primary worker_citus1...';
+        until pg_isready -h worker_citus1 -p 5432 -U postgres; do
+          sleep 2;
+        done;
+        
+        echo 'Preparing standby directory...';
+        rm -rf /var/lib/postgresql/data/*;
+        chown -R postgres:postgres /var/lib/postgresql/data;
+        chmod 700 /var/lib/postgresql/data;
+        
+        echo 'Creating base backup from primary...';
+        pg_basebackup -h worker_citus1 -p 5432 -U postgres -D /var/lib/postgresql/data -R -P -X stream -W;
+        
+        echo 'Starting standby server...';
+        touch /var/lib/postgresql/data/standby.signal;
+        exec postgres -D /var/lib/postgresql/data -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf
+      "
+    depends_on:
+      worker_citus1:
+        condition: service_healthy
+    networks:
+      - project_notion
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
 
   worker_citus2:
     image: citusdata/citus:12.1
     container_name: worker_citus2
-    # REMOVED: External port exposure - only internal cluster communication
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
@@ -129,39 +161,88 @@ services:
       - db_password
     volumes:
       - worker_data2:/var/lib/postgresql/data
+      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./init-scripts/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf
     networks:
       - project_notion
     depends_on:
-      - coordinator_citus
+      coordinator_citus:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: '1.00'
-          memory: 1G
+
+  worker_citus2_standby:
+    image: citusdata/citus:12.1
+    container_name: worker_citus2_standby
+    user: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_DB: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+      PGUSER: postgres
+      PGPASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - worker_citus2_standby_data:/var/lib/postgresql/data
+      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    command: >
+      bash -c "
+        echo 'Waiting for primary worker_citus2...';
+        until pg_isready -h worker_citus2 -p 5432 -U postgres; do
+          sleep 2;
+        done;
+
+        echo 'Preparing standby directory...';
+        rm -rf /var/lib/postgresql/data/*;
+        chown -R postgres:postgres /var/lib/postgresql/data;
+        chmod 700 /var/lib/postgresql/data;
+
+        echo 'Creating base backup from primary...';
+        pg_basebackup -h worker_citus2 -p 5432 -U postgres -D /var/lib/postgresql/data -R -P -X stream -W;
+
+        echo 'Starting standby server...';
+        touch /var/lib/postgresql/data/standby.signal;
+        exec postgres -D /var/lib/postgresql/data -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf
+      "
+    depends_on:
+      worker_citus2:
+        condition: service_healthy
+    networks:
+      - project_notion
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
 
   pgbouncer:
     image: edoburu/pgbouncer
     container_name: pgbouncer
     ports:
-      - "6432:6432"  # ONLY external port - single point of access
+      - "6432:6432"
     environment:
       DB_USER: postgres
       DB_PASSWORD_FILE: /run/secrets/db_password
     secrets:
       - db_password
     volumes:
-      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini
-      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt
+      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
     networks:
       - project_notion
     depends_on:
-      - coordinator_citus
+      coordinator_citus:
+        condition: service_healthy
     restart: unless-stopped
 
 networks:
@@ -174,6 +255,8 @@ volumes:
   coordinator_data:
   worker_data1:
   worker_data2:
+  worker_citus1_standby_data:
+  worker_citus2_standby_data:
 
 secrets:
   db_password:
