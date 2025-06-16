@@ -192,3 +192,5 @@ echo "To test the cluster:"
 echo "  docker compose exec coordinator_citus psql -U postgres -d postgres"
 echo "  SELECT * FROM pg_dist_shard;"
 echo "  SELECT * FROM test_distributed;"
+
+
