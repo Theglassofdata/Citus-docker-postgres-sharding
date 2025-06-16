@@ -1,129 +1,306 @@
-# Citus Cluster with Streaming Replication and Connection Pool (Docker Compose)
+Citus Cluster Data Warehouse and Analytics Project
+Welcome to the Citus Cluster Data Warehouse and Analytics Project repository! 🚀This project demonstrates a scalable, distributed data warehousing solution using a Citus cluster on PostgreSQL, designed for high-performance analytics. It showcases a modern data pipeline, from raw data ingestion to actionable insights, following industry best practices in data engineering and analytics.
 
-Welcome to the **Citus Cluster Project** repository! 🚀  
-This project demonstrates **how to deploy a scalable and highly available Postgres ecosystem** using **Docker Compose**.  
-The architecture comprises:
+📖 Project Overview
+This project builds a distributed data warehouse using Citus, a PostgreSQL extension for horizontal scaling, to process and analyze sales data from ERP and CRM systems. Key components include:
 
-- **Citus** for distributed scaling.
-- **Streaming Replication** for redundancy and failover.
-- **PgBouncer** for lightweight connection pooling.
-- **etcd** for service coordination.
+Distributed Data Architecture: Implements a medallion architecture with Bronze, Silver, and Gold layers using Citus for scalability.
+ETL Pipelines: Extracts, transforms, and loads data from CSV files into a distributed Citus cluster.
+Data Modeling: Designs fact and dimension tables in a star schema, optimized for analytical queries.
+Analytics & Reporting: Generates SQL-based insights into customer behavior, product performance, and sales trends.
 
-This portfolio piece highlights industry best practices for:
-- Database Sharding
-- High Availability
-- Connection Pooling
-- Container Orchestration
-- Failover Mechanisms
-- Docker Compose Operations
+🎯 Target Audience:This repository is ideal for data engineers, analysts, and students aiming to demonstrate expertise in:
 
----
-
-## 📖 Project Overview
-
-This project involves:
-
-1️⃣ **Designing a scalable architecture** for Postgres with Citus for horizontal scaling.  
-2️⃣ **Setting up Streaming Replication** to enable failover and redundancy.  
-3️⃣ **Installing PgBouncer** to efficiently handle numerous client connections.  
-4️⃣ **Using etcd** to manage service configuration and orchestration.  
-5️⃣ **Docker Compose** to spin up all components quickly and easily.
-
----
-
-## 🛠 Important Tools:
-
-✅ **Docker Compose:** Orchestrate multi-container services with ease.  
-✅ **Citus:** Enables scaling Postgres horizontally.  
-✅ **PgBouncer:** Connection pooler to efficiently handle numerous database sessions.  
-✅ **etcd:** Reliable key-value store for service coordination.  
-✅ **Postgres:** The base relational database.  
-
----
-
-## 🚀 Project Requirements
-
-### Cluster Setup (Docker Compose)
-
-➥ **Coordinator:** Acts as the main node for Citus.  
-➥ **Workers:** Handle shards and execute distributed workloads.  
-➥ **Replicas:** Standby nodes configured for physical streaming.  
-➥ **PgBouncer:** Connection pool to handle large number of client requests.  
-➥ **etcd:** Stores service configuration and health information.
-
----
-
-## 🏹 Operations Performed
-
-✅ Cluster initialized successfully with **Docker Compose**.  
-✅ Citus **coordinator and workers were up and healthy**.  
-✅ Standby nodes were configured for **streaming replication**.  
-✅ PgBouncer initialized to handle all client requests through a pool.  
-✅ etcd provided service orchestration and metadata storage.  
-
----
-
-## 🏹 Access
-
-➥ To connect directly to the **Coordinator**:
-
-```shell
-psql -h localhost -p 5432 -U postgres -d postgres
-
-➥ To connect through PgBouncer:
-psql -h localhost -p 6432 -U postgres -d postgres
-
-🏹 Architectural Diagram
-![Add your architecture screenshot here]
-
-🏹 Cluster Summary (Docker Compose)
-
-➥ coordinator_citus (Primary, port 5432)
-
-➥ worker_citus1 (Primary, port 5432)
-
-➥ worker_citus2 (Primary, port 5432)
-
-➥ worker_citus1_standby (Standby for worker 1, port 5432)
-
-➥ worker_citus2_standby (Standby for worker 2, port 5432)
-
-➥ pgbouncer (connection pool, port 6432)
-
-➥ etcd (coordination service)
+SQL Development
+Data Architecture
+Data Engineering
+ETL Pipeline Development
+Distributed Database Management
+Data Analytics
 
 
-🛡 License
+🛠️ Important Links & Tools
+All tools are free or open-source!
+
+Datasets: Sample ERP and CRM data in CSV format.
+Citus: PostgreSQL extension for distributed databases.
+Docker: Containerization platform to run the Citus cluster.
+pgAdmin: GUI tool for managing PostgreSQL and Citus databases.
+DrawIO: Tool for designing data architecture and flow diagrams.
+Notion: Project management and documentation hub.
+Notion Project Steps: Detailed project phases and tasks.
+Git Repository: Host your code on GitHub for version control and collaboration.
+
+
+🚀 Project Requirements
+Data Warehouse (Data Engineering)
+Objective
+Build a distributed data warehouse using a Citus cluster on PostgreSQL to consolidate sales data, enabling scalable analytical reporting.
+Specifications
+
+Data Sources: Import ERP and CRM data from CSV files.
+Data Quality: Cleanse and resolve data quality issues during transformation.
+Integration: Combine sources into a distributed star schema for analytics.
+Scalability: Use Citus to distribute data across multiple nodes for performance.
+Documentation: Provide clear data model documentation for stakeholders and analysts.
+
+Analytics & Reporting (Data Analysis)
+Objective
+Develop SQL-based analytics to deliver insights into:
+
+Customer behavior
+Product performance
+Sales trends
+
+For detailed requirements, see docs/requirements.md.
+
+🏗️ Data Architecture
+The project follows the Medallion Architecture with Citus for distributed processing:
+
+
+Bronze Layer: Raw data ingested from CSV files into Citus tables, distributed across worker nodes.
+Silver Layer: Cleansed, standardized, and normalized data for consistency.
+Gold Layer: Business-ready star schema (fact and dimension tables) optimized for reporting.
+
+
+📂 Repository Structure
+citus-data-warehouse/
+│
+├── datasets/                           # Raw ERP and CRM CSV files
+│   ├── erp_sales.csv
+│   ├── crm_customers.csv
+│
+├── docs/                               # Documentation and diagrams
+│   ├── citus-etl-architecture.drawio   # Medallion architecture diagram
+│   ├── data_catalog.md                 # Dataset field descriptions and metadata
+│   ├── data_flow.drawio                # Data pipeline flow diagram
+│   ├── data_models.drawio              # Star schema (fact/dimension tables)
+│   ├── naming-conventions.md           # Naming guidelines for tables and columns
+│   ├── requirements.md                 # Detailed project requirements
+│
+├── init-scripts/                       # Initialization scripts for Citus
+│   ├── 001-create-citus-extension.sql  # Creates Citus extension
+│
+├── scripts/                            # SQL scripts for ETL and analytics
+│   ├── bronze/                         # Load raw data into Citus
+│   │   ├── load_erp_sales.sql
+│   │   ├── load_crm_customers.sql
+│   ├── silver/                         # Data cleansing and transformation
+│   │   ├── transform_sales.sql
+│   │   ├── transform_customers.sql
+│   ├── gold/                           # Star schema creation and analytics
+│   │   ├── create_fact_sales.sql
+│   │   ├── create_dim_customers.sql
+│   │   ├── sales_trends_report.sql
+│
+├── tests/                              # Data quality and validation scripts
+│   ├── test_data_quality.sql           # Checks for nulls, duplicates, etc.
+│
+├── docker-compose.yml                  # Citus cluster configuration
+├── README.md                           # Project overview and setup guide
+├── LICENSE                             # MIT License
+├── .gitignore                          # Files to ignore in Git
+└── requirements.txt                    # Project dependencies
+
+
+🛠️ Setup Instructions
+Prerequisites
+
+Docker and Docker Compose
+pgAdmin (or any PostgreSQL client)
+Git
+Access to datasets in datasets/
+
+Step 1: Clone the Repository
+git clone https://github.com/your-username/citus-data-warehouse.git
+cd citus-data-warehouse
+
+Step 2: Start the Citus Cluster
+
+Launch the cluster using Docker Compose:
+docker compose up -d
+
+
+Verify all containers are running:
+docker ps -a
+
+Expected: 8 containers (coordinator_citus, worker_citus1, worker_citus2, worker_citus1_standby, worker_citus2_standby, pgbouncer, postgres, etcd) with status Up and (healthy).
+
+Check logs for errors:
+docker logs coordinator_citus
+
+
+
+Step 3: Connect to pgAdmin
+
+Run pgAdmin (if not installed locally):docker run -d -p 5050:80 \
+  -e "PGADMIN_DEFAULT_EMAIL=admin@admin.com" \
+  -e "PGADMIN_DEFAULT_PASSWORD=admin" \
+  --network=citus_network \
+  --name pgadmin \
+  dpage/pgadmin4
+
+
+Access pgAdmin at http://localhost:5050 (login: admin@admin.com / admin).
+Add the Citus coordinator server:
+Name: Citus Coordinator
+Host: localhost
+Port: 5433
+Username: postgres
+Password: (leave blank, uses trust authentication)
+Database: postgres
+
+
+
+Step 4: Configure Citus Cluster (Manual SQL)
+Execute these SQL queries in pgAdmin’s Query Tool (connected to postgres database):
+
+Verify Citus Extension:
+SELECT * FROM pg_extension WHERE extname = 'citus';
+
+
+Clean Existing Metadata (if needed):
+SELECT citus_drop_all_shards(pg_class.oid, nspname, relname)
+FROM pg_class
+JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
+WHERE relkind = 'r' AND nspname = 'public';
+DELETE FROM pg_dist_node;
+DELETE FROM pg_dist_shard;
+DELETE FROM pg_dist_placement;
+DROP TABLE IF EXISTS test_distributed CASCADE;
+
+
+Register Nodes:
+SELECT citus_add_node('coordinator_citus', 5432, 0, 'primary');
+SELECT citus_add_node('worker_citus1', 5432);
+SELECT citus_add_node('worker_citus2', 5432);
+
+
+Verify Nodes:
+SELECT nodename, nodeport, groupid, isactive, CASE WHEN isactive THEN 'Active' ELSE 'Inactive' END AS status
+FROM pg_dist_node 
+ORDER BY groupid;
+
+
+
+Step 5: Load and Process Data
+
+Bronze Layer: Load raw CSV data into Citus tables using scripts in scripts/bronze/:
+-- Example: scripts/bronze/load_erp_sales.sql
+CREATE TABLE bronze_erp_sales (
+    order_id VARCHAR(50),
+    customer_id VARCHAR(50),
+    product_id VARCHAR(50),
+    order_date DATE,
+    quantity INT,
+    unit_price DECIMAL(10,2)
+);
+SELECT create_distributed_table('bronze_erp_sales', 'order_id', shard_count := 4);
+-- Use pgAdmin to import CSV or COPY command
+COPY bronze_erp_sales FROM '/path/to/datasets/erp_sales.csv' WITH CSV HEADER;
+
+
+Silver Layer: Clean and transform data using scripts/silver/:
+-- Example: scripts/silver/transform_sales.sql
+CREATE TABLE silver_sales AS
+SELECT 
+    order_id,
+    customer_id,
+    product_id,
+    CAST(order_date AS DATE) AS order_date,
+    COALESCE(quantity, 0) AS quantity,
+    COALESCE(unit_price, 0.0) AS unit_price
+FROM bronze_erp_sales
+WHERE order_id IS NOT NULL;
+SELECT create_distributed_table('silver_sales', 'order_id', shard_count := 4);
+
+
+Gold Layer: Create star schema using scripts/gold/:
+-- Example: scripts/gold/create_fact_sales.sql
+CREATE TABLE fact_sales (
+    sale_id SERIAL PRIMARY KEY,
+    order_id VARCHAR(50),
+    customer_key INT,
+    product_key INT,
+    order_date DATE,
+    quantity INT,
+    total_amount DECIMAL(12,2)
+);
+SELECT create_distributed_table('fact_sales', 'order_id', shard_count := 4);
+
+
+
+Step 6: Run Analytics
+Use scripts in scripts/gold/ for reporting:
+-- Example: scripts/gold/sales_trends_report.sql
+SELECT 
+    DATE_TRUNC('month', order_date) AS month,
+    SUM(total_amount) AS total_sales,
+    COUNT(DISTINCT customer_key) AS unique_customers
+FROM fact_sales
+GROUP BY month
+ORDER BY month;
+
+Step 7: Validate Data
+Run tests in tests/:
+-- Example: tests/test_data_quality.sql
+SELECT 
+    'bronze_erp_sales' AS table_name,
+    COUNT(*) AS row_count,
+    COUNT(CASE WHEN order_id IS NULL THEN 1 END) AS null_order_ids
+FROM bronze_erp_sales;
+
+
+🧪 Testing and Validation
+
+Data Quality: Use tests/test_data_quality.sql to check for nulls, duplicates, and anomalies.
+Cluster Health: Verify node status and shard distribution:SELECT shardid, shardstate, nodename, nodeport
+FROM pg_dist_shard_placement
+WHERE shardid IN (SELECT shardid FROM pg_dist_shard)
+ORDER BY shardid;
+
+
+Replication: Check standby nodes:SELECT client_addr, state, sync_state FROM pg_stat_replication;
+
+
+
+
+🔒 Security Note
+This setup uses POSTGRES_HOST_AUTH_METHOD=trust for simplicity. For production:
+
+Set POSTGRES_PASSWORD in docker-compose.yml.
+Use md5 authentication.
+Configure firewalls and network security.
+
+
+🛡️ License
 This project is licensed under the MIT License.
-You are free to use, modify, and share this project with proper attribution.
 
 🌟 About Me
-Hi there! I'm Rahul Raj
-Let's connect and collaborate on future data-intensive projects!
-LinkedIn | Github | Portfolio
+Hi, I'm Rahul Raj! I'm passionate about data engineering and analytics, building scalable data solutions, and sharing knowledge.  
+📫 Connect with me:  
 
-yaml
-Copy
-Edit
+LinkedIn  
+GitHub  
+Email
 
----
+Feel free to fork this repository, contribute, or reach out with questions!
 
-✅ Now you can:
+📝 Contributing
 
-➥ **Save this directly as `README.md` in your repository.**  
-➥ **Add your screenshots:**  
-Simply put your `.png` files under `docs/` and update the `![Add your architecture screenshot here]` path.
-
-➥ Push it to Git and you have a polished, portfolio-ready Citus Cluster project!
-
----
-
-If you'd like, I can:
-
-- Provide you a directory structure with files you should create.
-- Give you a complete `docker-compose.yaml`.
-- Provide you a sample `init-citus.sql`.
-
-Just let me know! 🌟
+Fork the repository.
+Create a feature branch (git checkout -b feature/your-feature).
+Commit changes (git commit -m "Add your feature").
+Push to the branch (git push origin feature/your-feature).
+Open a pull request.
 
 
+🚧 Future Improvements
+
+Automate ETL pipelines with Airflow or dbt.
+Integrate with BI tools like Tableau or Power BI.
+Implement advanced sharding strategies.
+Add monitoring with Prometheus and Grafana.
+
+
+⭐ Star this repository if you find it helpful! Happy data engineering! 🚀
