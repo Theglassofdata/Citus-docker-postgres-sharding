@@ -27,91 +27,163 @@ This project sets up a **highly scalable and reliable Postgres ecosystem** using
 
 ---
 
-## 🔹 Cluster Summary (Docker Compose)
+## 🛠️ Technologies Used
 
-```shell
-➥ coordinator_citus (Primary, port 5432)
-➥ worker_citus1 (Primary, port 5432)
-➥ worker_citus2 (Primary, port 5432)
+| Component       | Purpose                              |
+|-----------------|--------------------------------------|
+| PostgreSQL 16   | Base relational database             |
+| Citus 12.1      | Extension for distributed queries     |
+| Docker Compose  | Multi-container orchestration        |
+| PgBouncer       | Lightweight connection pooler        |
+| etcd            | Service coordination (optional here) |
+| Bash            | Setup orchestration script           |
 
-➥ worker_citus1_standby (Standby for worker 1, port 5432)
-➥ worker_citus2_standby (Standby for worker 2, port 5432)
+---
 
-➥ pgbouncer (connection pooler, port 6432)
+## 📂 Folder Structure
 
-➥ etcd (used for service coordination)
+```
+.
+├── docker-compose.yml
+├── setup-citus-cluster.sh
+├── secrets/
+│   └── db_password.txt
+├── pgbouncer/
+│   ├── pgbouncer.ini
+│   └── userlist.txt
+└── README.md
+```
 
-🔹 Operations Performed
-✅ Checked readiness: All services were up and healthy.
-✅ Clean-up: Removed existing shards and metadata to start from a clean state.
-✅ Initiated Citus:
+---
 
-Added workers to the coordinator
+## ⚙️ How It Works
 
-Distributed a table
+1. **Docker Compose spins up services**:
+   - Coordinator + workers start with `trust` auth
+   - Volumes are mounted for persistent storage
 
-Loaded sample data
-✅ Checked Shards: Verified shards were distributed across workers.
-✅ Checked Replication: Confirmed primary and standby were in streaming state.
-✅ Set up Standbys: Standby containers were restarted to follow their respective primaries.
-✅ Connection Pool: PgBouncer initialized to handle heavy client workloads.
+2. **`setup-citus-cluster.sh` is run manually** after containers are up:
+   - Waits for Postgres to become ready
+   - Initializes the cluster and registers worker nodes
+   - Creates and distributes a sample table (`test_distributed`)
 
-🔹 Access
-To connect directly to Coordinator:
+3. **PgBouncer** listens on port `6432` for app/client queries.
 
-shell
-Copy
-Edit
-psql -h localhost -p 5432 -U postgres -d postgres
-To connect through PgBouncer:
+---
 
-shell
-Copy
-Edit
-psql -h localhost -p 6432 -U postgres -d postgres
-🔹 Screenshots (Add your own)
-Citus Cluster Initializing
-![Add your screenshot here]
+## 🚀 Getting Started
 
-Shards Distribution
-![Add your screenshot here]
+### 🔧 Prerequisites
 
-Streaming Replication
-![Add your screenshot here]
+- Docker & Docker Compose installed
+- Unix-like terminal (Linux, macOS, or WSL)
 
-Connection Pool (PgBouncer) in Action
-![Add your screenshot here]
+---
 
-🔹 Final Notes
-✅ The Docker Compose files and shell scripts (setup-citus-cluster.sh and setup-replication.sh) automate all these steps.
+### 🛠️ Setup Steps
 
-✅ The cluster is now ready to handle distributed workloads with redundancy and scalable connection handling.
+```bash
+# Step 1: Clone the repository
+git clone https://github.com/yourusername/citus-cluster-docker.git
+cd citus-cluster-docker
 
-🚀 If you’d like, you can:
+# Step 2: Start all services
+docker compose up -d
 
-Provide a small “cheat sheet” of psql commands
+# Step 3: Wait 15–20 seconds for containers to fully start
+docker compose ps
 
-Include backup or failover instructions
+# Step 4: Run the cluster setup script
+chmod +x setup-citus-cluster.sh
+./setup-citus-cluster.sh
 
-Expand this to multi-datacenter or multi-region
+# Step 5: Verify worker registration
+psql -h localhost -p 6432 -U postgres -d postgres -c "SELECT * FROM pg_dist_node;"
+```
 
-vbnet
-Copy
-Edit
+---
 
-✅ Now you can **copy this directly into your `README.md`**.  
-✅ Feel free to **paste your own screenshots** into the placeholders afterwards.  
+## ✅ Expected Output
 
-If you'd like, I can:
-- Provide a psql cheat sheet
-- Failover instructions
-- or even a small architecture SVG
+```sql
+ nodename     | nodeport | groupid | isactive
+--------------+----------+---------+----------
+ worker_citus1 |     5432 |       1 | t
+ worker_citus2 |     5432 |       2 | t
+```
 
-Just let me know!
+---
 
+## 🧪 Test Query
 
+```sql
+SELECT * FROM test_distributed;
+SELECT COUNT(*) FROM test_distributed;
+SELECT * FROM pg_dist_shard;
+```
 
+---
 
+## 📊 Architecture Overview
 
+```text
++---------------------------+
+|     Your Applications     |
+|    (psql, backend apps)   |
++------------+--------------+
+             |
+             v
++---------------------------+
+|        PgBouncer          | <--- Exposed at localhost:6432
++------------+--------------+
+             |
+             v
++---------------------------+
+|  Citus Coordinator Node   |
+|  (postgres + citus ext)   |
++------------+--------------+
+             |
+     ---------------------
+     |                   |
+     v                   v
++-----------+     +-----------+
+| Worker 1  |     | Worker 2  |
+| Postgres  |     | Postgres  |
++-----------+     +-----------+
+```
 
+---
 
+## 🛡️ Notes
+
+- **All inter-node auth is set to `trust`** for dev simplicity. Use password or certificate auth for production.
+- **No `.sql` auto-run** — all setup is via a clear shell script you control.
+- Compatible with **extending to 3+ workers**, **HA setups**, or **monitoring** via Prometheus.
+
+---
+
+## 📦 Cleanup
+
+To reset the cluster completely:
+
+```bash
+docker compose down -v
+docker system prune -f
+```
+
+---
+
+## 🤝 Contributing
+
+Pull requests welcome! If you want to add:
+- Auto-failover (e.g., with Patroni or pg_auto_failover)
+- Monitoring with Prometheus/Grafana
+- CI/CD integration
+
+Feel free to fork or open a PR!
+
+---
+
+## 📄 License
+
+MIT © RAHUL RAJ
